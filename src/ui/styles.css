@@ -475,6 +475,12 @@ input[type="range"]::-moz-range-thumb {
   display: block;
 }
 
+/* an animal to stroke (the cat): a finger moving sideways over it strokes it, and one moving up
+   or down still scrolls the page (on a phone this screen is as wide as the page) */
+.creature-canvas.strokable {
+  touch-action: pan-y;
+}
+
 .bestiary {
   display: grid;
   grid-template-columns: minmax(250px, 0.9fr) minmax(280px, 1fr) minmax(300px, 1.1fr);

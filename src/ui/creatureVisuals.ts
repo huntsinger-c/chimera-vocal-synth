@@ -6,8 +6,8 @@ export interface CreatureVisual {
   /** body outline in drawing units (≈ cm; y up) */
   silhouette: [number, number][];
   /** extra shapes drawn in tissue tones (shade 0 black … 1 white): closed outlines, or open
-   *  lines (stroke: whiskers, the line of a haunch) */
-  parts?: { shade: number; pts: [number, number][]; stroke?: boolean }[];
+   *  lines (stroke: whiskers, the line of a haunch); eye: it closes when the animal is content */
+  parts?: { shade: number; pts: [number, number][]; stroke?: boolean; eye?: boolean }[];
   /** airway centrelines per tube name (tube nodes are distributed along the path); inView: false
    *  keeps the label out of the cross-section (it still names the tube's lane) */
   tubes: { tube: string; path: [number, number][]; label?: string; inView?: boolean }[];
@@ -17,6 +17,11 @@ export interface CreatureVisual {
   view: { x0: number; x1: number; y0: number; y1: number };
   /** sound sources to draw, keyed into the creature's source state */
   sources?: { key: string; at: [number, number]; label: string }[];
+  /** an animal that likes to be stroked: a moment of it anywhere on its body and its eye closes,
+   *  hearts rise from `hearts`, and it sounds `call` again and again until it settles. A tap on
+   *  it gets `tap` (at a pitch a little different each time), and the fifth tap in a row
+   *  `annoyed`. `hint` says so on the screen. */
+  pet?: { call: string; tap: string; annoyed: string; hearts: [number, number]; hint: string };
 }
 
 export const CREATURE_VISUALS: Record<string, CreatureVisual> = {
@@ -81,7 +86,7 @@ export const CREATURE_VISUALS: Record<string, CreatureVisual> = {
       [9.6, 46.2], [12.4, 42.6], [14.6, 47.0], [16.6, 41.8], [18.6, 39.6], [19.9, 37.0], [20.2, 34.8], [21.0, 33.6],
     ],
     parts: [
-      { shade: 0.2, pts: [[17.5, 36.0], [18.4, 36.9], [19.3, 36.0], [18.4, 35.1]] },
+      { shade: 0.2, eye: true, pts: [[17.5, 36.0], [18.4, 36.9], [19.3, 36.0], [18.4, 35.1]] },
       // the haunch, the back of the foreleg, three whiskers
       { shade: 0.2, stroke: true, pts: [[-12.5, 6.0], [-9.0, 13.0], [-2.5, 15.5], [3.5, 12.5], [6.5, 7.0], [6.8, 1.0]] },
       { shade: 0.2, stroke: true, pts: [[12.6, 0.6], [12.2, 6.0], [12.8, 11.5]] },
@@ -97,5 +102,6 @@ export const CREATURE_VISUALS: Record<string, CreatureVisual> = {
     ],
     tubeScale: 1.8,
     sources: [{ key: "glottis", at: [13.6, 26.6], label: "Larynx" }],
+    pet: { call: "purr", tap: "meow", annoyed: "hiss", hearts: [12, 48], hint: "Stroke it to make it purr. Tap it and it answers." },
   },
 };

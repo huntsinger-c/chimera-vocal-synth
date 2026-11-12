@@ -6,6 +6,7 @@ import type { CreatureDef } from "../../wasm/types.ts";
 import { liveTelemetry, previewTelemetry } from "../creatureLive.ts";
 import { TEXT, V, SLOTS, heat, pressureLevel } from "../colors.ts";
 import { beamPts, dot, hfont, label, labelWidth, ring, seg, wrapLabel, type Pt } from "../render/vector.ts";
+import { Stroking } from "../render/petting.ts";
 
 type P = [number, number];
 
@@ -39,7 +40,7 @@ interface TubeGeom {
 
 interface Geom {
   silhouette: P[];
-  parts: { shade: number; pts: P[]; closed: boolean }[];
+  parts: { shade: number; pts: P[]; closed: boolean; eye: boolean }[];
   tubes: TubeGeom[];
 }
 
@@ -50,7 +51,7 @@ function geometry(def: CreatureDef): Geom {
   const v = def.visual;
   g = {
     silhouette: smooth(v.silhouette, 8, true),
-    parts: (v.parts ?? []).map((p) => ({ shade: p.shade, pts: smooth(p.pts, 6, !p.stroke), closed: !p.stroke })),
+    parts: (v.parts ?? []).map((p) => ({ shade: p.shade, pts: smooth(p.pts, 6, !p.stroke), closed: !p.stroke, eye: !!p.eye })),
     tubes: v.tubes.map((t) => {
       const pts = smooth(t.path, 6, false);
       const cum = [0];
@@ -90,7 +91,14 @@ function fmtParam(v: number, p: CreatureDef["params"][number]): { value: string;
  */
 export function CreatureView() {
   const glyph = useRef<{ peak: Record<string, number>; phase: Record<string, number> }>({ peak: {}, phase: {} });
-  const ref = usePhosphor(({ ctx, w, h, dt }) => {
+  // an animal that likes to be stroked (the cat): the pointer on its body, and when it last purred for it
+  const stroked = useRef<{ id: string; s: Stroking; calledAt: number } | null>(null);
+  // where the last frame drew the animal: CSS px = (ox + x·sc, oy − y·sc)
+  const placed = useRef<{ ox: number; oy: number; sc: number } | null>(null);
+  // where the pointer last was (CSS px): how far a press has moved (movementX is 0 for a finger in some browsers)
+  const pointer = useRef<[number, number] | null>(null);
+  const strokable = useStore((s) => !!creatureById(s.creature)?.visual.pet);
+  const ref = usePhosphor(({ ctx, w, h, dt, now }) => {
     const st = useStore.getState();
     const def = creatureById(st.creature);
     if (!def) return;
@@ -98,11 +106,15 @@ export function CreatureView() {
     const geo = geometry(def);
     const live = liveTelemetry(def.id);
     const tele = live ?? previewTelemetry(def, st.cparams[def.id]);
+    if (stroked.current?.id !== def.id) stroked.current = vis.pet ? { id: def.id, s: new Stroking(vis.silhouette), calledAt: 0 } : null;
+    const pet = stroked.current?.s.pet;
     // a narrow screen (a phone) stacks the title and status, and puts the readouts two by two
     const compact = w < 560;
-    // what the animal is, under its name (its place in the right column went to the calls)
+    // what the animal is, under its name (its place in the right column went to the calls), and
+    // what it likes
     const blurbO = { size: 10, color: TEXT.secondary, ls: 0.08 };
     const blurb = wrapLabel(ctx, def.blurb, Math.min(w - 36, 460), blurbO);
+    if (vis.pet) blurb.push(...wrapLabel(ctx, vis.pet.hint, Math.min(w - 36, 460), blurbO));
     const blurbY = compact ? 90 : 76, blurbH = blurb.length * 15;
     const top = (compact ? 96 : 64) + blurbH, slotH = compact ? 132 : Math.min(118, h * 0.2);
     const vw = vis.view.x1 - vis.view.x0, vh = vis.view.y1 - vis.view.y0;
@@ -110,9 +122,19 @@ export function CreatureView() {
     const ox = w / 2 - ((vis.view.x0 + vis.view.x1) / 2) * sc;
     const oy = top + (h - top - slotH) / 2 + ((vis.view.y0 + vis.view.y1) / 2) * sc;
     const S = ([x, y]: P): Pt => [ox + x * sc, oy - y * sc];
+    placed.current = { ox, oy, sc };
 
     beamPts(ctx, geo.silhouette.map(S), V.blue, 1.7, { hot: true, close: true });
-    for (const part of geo.parts) beamPts(ctx, part.pts.map(S), part.shade > 0.5 ? V.blueMid : V.blueDim, 1, { close: part.closed, alpha: 0.9 });
+    // content, it shuts its eye: the eye's outline flattens to a line
+    const lid = 1 - 0.92 * (pet?.content ?? 0);
+    for (const part of geo.parts) {
+      let pts = part.pts;
+      if (part.eye && lid < 1) {
+        const cy = pts.reduce((a, q) => a + q[1], 0) / pts.length;
+        pts = pts.map(([x, y]) => [x, cy + (y - cy) * lid]);
+      }
+      beamPts(ctx, pts.map(S), part.shade > 0.5 ? V.blueMid : V.blueDim, part.eye && lid < 0.5 ? 1.4 : 1, { close: part.closed, alpha: 0.9 });
+    }
 
     // airways: walls at the simulated width (drawn wider than life so narrow tubes stay legible)
     const exaggerate = vis.tubeScale ?? 1.6;
@@ -190,11 +212,26 @@ export function CreatureView() {
       }
     }
 
+    // stroked for a moment, it is happy: hearts rise beside its head, and it sounds its call
+    // again whenever that ends, for as long as the mood lasts (a few seconds past the stroking).
+    // Only once the audio runs: a pointer passing over is not a press, and can't start it.
+    const touch = stroked.current;
+    if (touch && vis.pet) {
+      const cmPx = sc * 2.6;
+      touch.s.pet.update(dt, S(vis.pet.hearts), cmPx);
+      touch.s.pet.draw(ctx, 1, cmPx);
+      if (touch.s.pet.happy && st.started && live && !live.call && now - touch.calledAt > 700) {
+        touch.calledAt = now;
+        st.playCall(vis.pet.call);
+      }
+    }
+
     // like a map's title: the name, the latin name, and what it is doing
     label(ctx, fit(ctx, def.name.toUpperCase(), w - 32, compact ? 18 : 24, 0.18), 16, compact ? 30 : 34, { size: compact ? 18 : 24, color: TEXT.primary, ls: 0.18 });
     label(ctx, fit(ctx, def.latin.toUpperCase(), w - 34, 10, 0.16), 18, compact ? 48 : 54, { size: 10, color: TEXT.secondary, ls: 0.16 });
     blurb.forEach((line, i) => label(ctx, line, 18, blurbY + i * 15, blurbO));
-    const state = live ? (live.call ? (def.calls.find((c) => c.id === live.call)?.name ?? live.call) : live.gate > 0.05 ? "Sustaining" : "At rest") : "Not started";
+    // (stroked happy before the audio runs, it says how to hear it: a passing pointer can't start the audio)
+    const state = live ? (live.call ? (def.calls.find((c) => c.id === live.call)?.name ?? live.call) : live.gate > 0.05 ? "Sustaining" : "At rest") : pet?.happy ? "Content: press it to hear" : "Not started";
     const pitchText = pp ? (() => { const f = fmtParam(pitch, pp); return `${f.value} ${f.unit}`.trim().toUpperCase(); })() : "";
     if (compact) {
       label(ctx, `${state.toUpperCase()}${pitchText ? "   " + pitchText : ""}`, 18, 70, { size: 11, color: V.amber, ls: 0.14 });
@@ -233,5 +270,58 @@ export function CreatureView() {
       else if (f.unit) label(ctx, f.unit.toUpperCase(), cx, cy + 32 + big, { size: 10, color, ls: 0.14, alpha: 0.7 });
     });
   });
-  return <canvas ref={ref} className="creature-canvas" aria-label="Creature airway: its outline, its airways lit by sound pressure, and its sound sources" role="img" />;
+  /** the pointer in the animal's own centimetres, if this animal is one to stroke */
+  const onBody = (e: React.PointerEvent<HTMLCanvasElement>): P | null => {
+    const m = placed.current;
+    if (!m || !stroked.current) return null;
+    const r = e.currentTarget.getBoundingClientRect();
+    return [(e.clientX - r.left - m.ox) / m.sc, (m.oy - (e.clientY - r.top)) / m.sc];
+  };
+  // the browser lets a press start the audio: a mouse's when it goes down, a finger's when it lifts
+  const wake = () => {
+    const st = useStore.getState();
+    if (!st.started && !st.starting) void st.start();
+  };
+  const onDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    pointer.current = [e.clientX, e.clientY];
+    if (stroked.current?.s.press(onBody(e)) && e.pointerType === "mouse") wake();
+  };
+  const onMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const t = stroked.current;
+    const from = pointer.current;
+    pointer.current = [e.clientX, e.clientY];
+    const over = !!t && t.s.move(onBody(e), from ? Math.hypot(e.clientX - from[0], e.clientY - from[1]) : 0);
+    e.currentTarget.style.cursor = over ? "pointer" : "";
+  };
+  const onUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const t = stroked.current;
+    const pet = t && creatureById(t.id)?.visual.pet;
+    if (!t || !pet) return;
+    const touch = e.pointerType !== "mouse";
+    const said = t.s.lift(performance.now(), touch);
+    if (touch && (said || t.s.pet.level > 0)) wake();
+    const st = useStore.getState();
+    // a tap gets an answer, never quite the same twice: within a tone either side of the call's own pitch
+    const own = creatureById(t.id)?.calls.find((c) => c.id === pet.tap)?.pitchRef;
+    if (said === "tap") st.playCall(pet.tap, own ? own * Math.pow(2, (Math.random() * 4 - 2) / 12) : undefined);
+    else if (said === "annoyed") st.playCall(pet.annoyed);
+    if (said) t.calledAt = performance.now();
+  };
+  const onLeave = () => {
+    pointer.current = null;
+    stroked.current?.s.leave();
+  };
+  return (
+    <canvas
+      ref={ref}
+      className={`creature-canvas${strokable ? " strokable" : ""}`}
+      aria-label={`Creature airway: its outline, its airways lit by sound pressure, and its sound sources${strokable ? ". Stroke it and it purrs; tap it and it answers." : ""}`}
+      role="img"
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerLeave={onLeave}
+      onPointerCancel={onLeave}
+    />
+  );
 }

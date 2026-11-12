@@ -182,6 +182,53 @@ async function run(viewport: { width: number; height: number }, tag: string) {
     });
     logs.push(`[${tag}] creature ${name}: ${JSON.stringify(state)}`);
   }
+  // the cat: stroked, it purrs (the call sounds again while the mood lasts); a tap gets a meow,
+  // and the fifth tap in a row a hiss. Its body is found by the cursor, a hand over it.
+  await page.locator(".specimen", { hasText: "House cat" }).click();
+  await page.waitForTimeout(1300);
+  const catCanvas = page.locator(".creature-canvas");
+  await catCanvas.scrollIntoViewIfNeeded();
+  const cb = (await catCanvas.boundingBox())!;
+  const creatureCall = () =>
+    page.evaluate(() => {
+      // @ts-expect-error debug handle
+      return (window.__chimeraEngine?.latestCreature?.t?.call ?? null) as string | null;
+    });
+  const onCat: [number, number][] = [];
+  for (let gy = 0.15; gy < 0.9; gy += 0.03) {
+    for (let gx = 0.1; gx < 0.9; gx += 0.04) {
+      const at: [number, number] = [cb.x + cb.width * gx, cb.y + cb.height * gy];
+      await page.mouse.move(at[0], at[1]);
+      if ((await catCanvas.evaluate((c) => (c as HTMLElement).style.cursor)) === "pointer") onCat.push(at);
+    }
+  }
+  if (onCat.length < 6) errors.push(`[${tag}] the cat's body was not found under the pointer (${onCat.length} of the grid's points)`);
+  else {
+    // stroke it: back and forth along the widest row of its body (the search above stroked it
+    // too, but how long ago depends on how fast the grid was walked, and the mood fades in 4 s)
+    const rows = new Map<number, [number, number][]>();
+    for (const at of onCat) rows.set(at[1], [...(rows.get(at[1]) ?? []), at]);
+    const widest = [...rows.values()].sort((a, b) => b.length - a.length)[0];
+    for (let i = 0; i < 8; i++) {
+      const to = i % 2 ? widest[0] : widest[widest.length - 1];
+      await page.mouse.move(to[0], to[1], { steps: 12 });
+    }
+    await page.waitForTimeout(900);
+    const purring = await creatureCall();
+    const belly = widest[Math.floor(widest.length / 2)];
+    await page.mouse.click(belly[0], belly[1]);
+    await page.waitForTimeout(250);
+    const answered = await creatureCall();
+    for (let i = 0; i < 4; i++) await page.mouse.click(belly[0], belly[1], { delay: 20 });
+    await page.waitForTimeout(250);
+    const annoyed = await creatureCall();
+    logs.push(`[${tag}] creature cat stroked: ${purring}, tapped: ${answered}, tapped five times: ${annoyed} (${onCat.length} grid points on its body)`);
+    if (purring !== "purr") errors.push(`[${tag}] the stroked cat is not purring (call ${purring})`);
+    if (answered !== "meow") errors.push(`[${tag}] the tapped cat did not meow (call ${answered})`);
+    if (annoyed !== "hiss") errors.push(`[${tag}] the cat tapped five times did not hiss (call ${annoyed})`);
+    await page.mouse.move(cb.x + 4, cb.y + 4);
+    await page.waitForTimeout(1300);
+  }
   // the sounding call's button reads Stop, and stops it (start one if the last has ended)
   const stop = page.getByRole("button", { name: /^Stop$/ });
   if (!(await stop.count())) {
