@@ -9,8 +9,8 @@ ambitious. Sophisticated throat, lips, tongue modeling. Different animals: human
 etc. Tonal and percussive (beatboxing). Beautiful visuals/diagrams, dynamic animations based on
 params."
 
-**Not built (yet):** the design's wider bestiary (only songbird, seal, alligator and elephant
-exist), the two-mass vocal folds, an IPA chart mode, the app-side EQ/reverb/limiter chain and
+**Not built (yet):** the design's wider bestiary (only songbird, seal, alligator, elephant and
+house cat exist), the two-mass vocal folds, an IPA chart mode, the app-side EQ/reverb/limiter chain and
 in-app WAV export (the CLI renders WAVs; the app has a close-mic chain in WebAudio). Treat the
 code as the truth where this file disagrees.
 
@@ -89,6 +89,13 @@ branching (nasal tract, sinuses, piriform fossae, two bronchi, vocal sacs, OEC).
   (Bernoulli suction / upstream push) for lip trill, tongue-tip trill, uvular trill,
   lip buzz (beatbox bass, elephant trumpet as a lip-reed at the trunk base). Optional
   phase-locked drive if self-oscillation is not robust.
+* **Purr (house cat)**: the folds part about 25 times a second, a prescribed area pulse like
+  the parametric glottis's but with no pressure threshold, while the lung pressure alternates
+  sign: a breath in (0.65 s), then out (0.58 s), a puff of air through the glottis each time,
+  in whichever direction the breath is going. The lips are sealed and the soft palate hangs
+  open, so it sounds through the nose. The same pulse at half strength chops the voice into a
+  trill. Because a purr radiates about 30 dB less than a meow, the cat's output is scaled up
+  while it purrs, as if the ear were 3 cm from it instead of a metre.
 * **Airstream mechanisms**: lung pressure may be negative (ingressive); glottal closure +
   larynx raising/lowering (ejectives/implosives via dV/dt); velaric closure + tongue
   dorsum lowering (clicks). All physical through the FDTD — no special-cased samples.
@@ -188,6 +195,12 @@ and the commit history actually cite, and says where they cite nothing.
   VocalTractLab code or data is used.
 - **Songbird syrinx** (`sources/syrinx.rs`): the labial oscillator is what the code calls the
   Gardner–Mindlin normal form. The repo doesn't record which paper it came from.
+- **House cat** (`creatures/cat.rs`): the meow's pitch, its strongest part (the harmonic at
+  1–2 kHz) and their tie to the jaw's opening are checked against Shipley, Carterette & Buchwald
+  (1991); the purr's rate and the lengths of the breath in and the breath out are the means of
+  the four cats in Schötz & Eklund (2011). Why the folds part that slowly is argued (muscle
+  twitches: Remmers & Gautier 1972; the folds alone: Herbst et al. 2023), and the model doesn't
+  depend on the answer.
 - **Voice-source defaults**, from the tuning log ([hill-climb/log.md](hill-climb/log.md)): the
   posterior glottal chink that stays open through closure follows Södersten & Lindestad (1990)
   (experiment 3); the 6 Hz default vibrato rate follows Prame (1994) (experiment 9). The log
@@ -214,6 +227,9 @@ Rayleigh–Plesset oscillators behind some creature sounds.
 - **The glottal area pulse** (`sources/glottis.rs`): parametric, with no published pulse model
   cited.
 - **The creatures' anatomy** (seal, alligator, elephant, songbird tract): no source recorded.
+  The cat's is a 4 kg cat's sizes to the nearest half centimetre, estimated, with no measurement
+  behind them; its mouth shapes (how the jaw and tongue set the area along it) are invented and
+  were kept because the resonances they give move the way the meow's do.
 - **Aalto University's speech modelling group.** Nothing in the code, docs or history mentions
   the group or its work, so we can't say CHIMERA builds on it. Physical vocal-tract models share
   a lot of ground, so the resemblance may not point to a borrowing.

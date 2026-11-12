@@ -5,8 +5,9 @@
 export interface CreatureVisual {
   /** body outline in drawing units (≈ cm; y up) */
   silhouette: [number, number][];
-  /** extra shapes drawn in tissue tones (shade 0 black … 1 white) */
-  parts?: { shade: number; pts: [number, number][]; stroke?: boolean }[];
+  /** extra shapes drawn in tissue tones (shade 0 black … 1 white): closed outlines, or open
+   *  lines (stroke: whiskers, the line of a haunch); eye: it closes when the animal is content */
+  parts?: { shade: number; pts: [number, number][]; stroke?: boolean; eye?: boolean }[];
   /** airway centrelines per tube name (tube nodes are distributed along the path); inView: false
    *  keeps the label out of the cross-section (it still names the tube's lane) */
   tubes: { tube: string; path: [number, number][]; label?: string; inView?: boolean }[];
@@ -16,6 +17,11 @@ export interface CreatureVisual {
   view: { x0: number; x1: number; y0: number; y1: number };
   /** sound sources to draw, keyed into the creature's source state */
   sources?: { key: string; at: [number, number]; label: string }[];
+  /** an animal that likes to be stroked: a moment of it anywhere on its body and its eye closes,
+   *  hearts rise from `hearts`, and it sounds `call` again and again until it settles. A tap on
+   *  it gets `tap` (at a pitch a little different each time), and the fifth tap in a row
+   *  `annoyed`. `hint` says so on the screen. */
+  pet?: { call: string; tap: string; annoyed: string; hearts: [number, number]; hint: string };
 }
 
 export const CREATURE_VISUALS: Record<string, CreatureVisual> = {
@@ -69,5 +75,33 @@ export const CREATURE_VISUALS: Record<string, CreatureVisual> = {
     ],
     tubeScale: 3,
     sources: [{ key: "glottis", at: [95, 38], label: "Vocal folds" }, { key: "lips", at: [136, 70], label: "Trunk valve" }],
+  },
+  // sitting, in profile: from the nose down the chest, along the ground to the tail and back over the ears
+  "cat": {
+    view: { x0: -38, x1: 29, y0: -4, y1: 50 },
+    silhouette: [
+      [21.8, 32.6], [21.4, 31.2], [20.2, 29.4], [17.8, 28.0], [15.8, 27.0], [14.8, 24.0], [16.0, 19.0], [16.4, 13.0], [15.8, 6.0], [17.8, 1.6], [17.4, 0.0],
+      [8.0, 0.0], [0.0, 0.0], [-8.0, 0.2], [-13.0, 1.4], [-20.0, 0.4], [-27.0, 1.0], [-32.0, 4.0], [-34.0, 9.0], [-33.0, 13.5], [-31.2, 10.0],
+      [-29.5, 5.6], [-25.5, 3.6], [-19.0, 3.4], [-14.5, 5.0], [-15.2, 10.0], [-13.6, 17.0], [-9.5, 23.5], [-3.5, 28.5], [2.8, 31.8], [6.6, 35.0], [8.0, 38.4], [8.8, 41.2],
+      [9.6, 46.2], [12.4, 42.6], [14.6, 47.0], [16.6, 41.8], [18.6, 39.6], [19.9, 37.0], [20.2, 34.8], [21.0, 33.6],
+    ],
+    parts: [
+      { shade: 0.2, eye: true, pts: [[17.5, 36.0], [18.4, 36.9], [19.3, 36.0], [18.4, 35.1]] },
+      // the haunch, the back of the foreleg, three whiskers
+      { shade: 0.2, stroke: true, pts: [[-12.5, 6.0], [-9.0, 13.0], [-2.5, 15.5], [3.5, 12.5], [6.5, 7.0], [6.8, 1.0]] },
+      { shade: 0.2, stroke: true, pts: [[12.6, 0.6], [12.2, 6.0], [12.8, 11.5]] },
+      { shade: 0.2, stroke: true, pts: [[20.8, 31.9], [25.0, 33.4]] },
+      { shade: 0.2, stroke: true, pts: [[20.8, 31.6], [25.8, 31.6]] },
+      { shade: 0.2, stroke: true, pts: [[20.8, 31.3], [25.0, 29.8]] },
+    ],
+    tubes: [
+      { tube: "trachea", path: [[9.0, 17.5], [11.2, 22.0], [13.6, 26.6]], label: "Trachea" },
+      { tube: "pharynx", path: [[13.6, 26.6], [14.6, 29.2], [16.0, 31.0]], label: "Throat", inView: false },
+      { tube: "oral", path: [[16.0, 31.0], [18.8, 31.1], [21.4, 31.3]], label: "Mouth" },
+      { tube: "nasal", path: [[15.8, 32.9], [18.6, 34.0], [21.6, 33.0]], label: "Nose" },
+    ],
+    tubeScale: 1.8,
+    sources: [{ key: "glottis", at: [13.6, 26.6], label: "Larynx" }],
+    pet: { call: "purr", tap: "meow", annoyed: "hiss", hearts: [12, 48], hint: "Stroke it to make it purr. Tap it and it answers." },
   },
 };

@@ -30,7 +30,8 @@ for tests and the `chimera` CLI.
   English or Korean (Hangul: one block per note, with Korean sound rules); each language is a
   front end ([docs/language-front-ends.md](docs/language-front-ends.md)).
 - **Beatbox**: pads and a step sequencer, every drum an articulatory gesture.
-- **Bestiary**: songbird (two-voice syrinx), seal, alligator and elephant.
+- **Bestiary**: songbird (two-voice syrinx), seal, alligator, elephant, and a house cat that
+  purrs when you stroke it.
 - **Duet** (`?show=<id>`): two 3D heads replay a pre-rendered song.
 
 Male, female and child bodies blend continuously. Everything on screen animates from live

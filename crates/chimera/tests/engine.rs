@@ -126,6 +126,46 @@ fn the_voice_holds_for_a_child_at_low_device_rates() {
     }
 }
 
+/// A creature's held voice through the engine at this output rate: its RMS over the second half
+/// of 1.5 s, and the Courant number of its shortest section.
+fn held_creature(fs: f64, id: &str) -> (f64, f64) {
+    let def = chimera::creatures::creature_by_id(id).unwrap();
+    let mut e = Engine::new(fs);
+    e.set_creature(Some(def), &[]);
+    let cfl = e.creature().unwrap().sim.net().map_or(0.0, |n| n.check_cfl());
+    e.set_gate(1.0);
+    let n = (1.5 * fs) as usize;
+    let mut out = vec![0.0f32; n];
+    for chunk in out.chunks_mut(128) {
+        e.render(chunk);
+    }
+    let tail = &out[n / 2..];
+    ((tail.iter().map(|&x| (x as f64) * (x as f64)).sum::<f64>() / tail.len() as f64).sqrt(), cfl)
+}
+
+#[test]
+fn the_voice_holds_for_every_creature_at_low_device_rates() {
+    // A creature's airway ran at the device rate times a fixed factor, and a tube has a minimum
+    // number of sections: at a 16 kHz device (64 kHz airway) the songbird's 0.8 cm bronchi were
+    // three 0.27 cm sections where a step of sound covers 0.55 cm (Courant 2.05). The airway went
+    // NaN and the voice wrote zeros: silence at 8, 16, 22.05 and 24 kHz, with no error.
+    for def in chimera::creatures::CREATURES.iter() {
+        let (reference, _) = held_creature(48000.0, def.id);
+        assert!(reference > 0.02, "{} at 48 kHz: RMS {reference:.4}", def.id);
+        for fs in [8000.0, 16000.0, 22050.0, 24000.0, 32000.0] {
+            let (rms, cfl) = held_creature(fs, def.id);
+            assert!(cfl <= 0.971, "{} at {fs} Hz: Courant number {cfl:.3}", def.id);
+            // an 8 kHz device can't carry what the animal sings above 4 kHz, so it is quieter there
+            let floor = if fs < 16000.0 { 0.4 } else { 0.67 };
+            assert!(rms > floor * reference && rms < 1.5 * reference, "{} at {fs} Hz: RMS {rms:.4}, 48 kHz {reference:.4}", def.id);
+        }
+    }
+    // the usual rates simulate as before (the creatures' golden fixtures stand)
+    use chimera::creatures::voice::oversample_for;
+    assert_eq!([44100.0, 48000.0, 60000.0, 88200.0, 96000.0].map(|fs| oversample_for(4, fs)), [4, 4, 4, 2, 2]);
+    assert_eq!([44100.0, 48000.0, 96000.0].map(|fs| oversample_for(1, fs)), [1, 1, 1]);
+}
+
 #[test]
 fn an_extreme_pose_does_not_squeal_with_the_voice_off() {
     // Issue #50: lips back, tongue low, larynx up, soft palate down. The low tongue moved the

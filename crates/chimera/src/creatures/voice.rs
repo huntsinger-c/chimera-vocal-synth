@@ -106,6 +106,19 @@ fn truthy(x: f64) -> bool {
     x != 0.0 && !x.is_nan()
 }
 
+/// How many airway samples a creature simulates per output sample at this device rate: the
+/// def's factor (halved above 60 kHz), and below 44.1 kHz as many more as keep the airway at
+/// least as fast as a 44.1 kHz device's. A tube has a minimum number of sections, so a slower
+/// airway makes them shorter than one step of sound: at 4× a 16 kHz output (a Bluetooth
+/// headset's) the songbird's 0.8 cm bronchi had a Courant number of 2 and it was silent.
+pub fn oversample_for(def_oversample: u32, fs_out: f64) -> usize {
+    let o = def_oversample as f64;
+    if fs_out < 44100.0 {
+        return ((o * 44100.0) / fs_out).ceil() as usize;
+    }
+    js_max(1.0, js_round(o * if fs_out > 60000.0 { 0.5 } else { 1.0 })) as usize
+}
+
 pub struct CreatureVoice {
     pub def: &'static CreatureDef,
     pub fs_out: f64,
@@ -145,7 +158,7 @@ impl CreatureVoice {
     /// A voice at output rate `fs_out`. `initial` sets parameters by index (a later entry for the
     /// same index wins; non-finite values are ignored, as missing keys were in TS).
     pub fn new(def: &'static CreatureDef, fs_out: f64, initial: &[(usize, f64)]) -> Self {
-        let m = js_max(1.0, js_round(def.oversample as f64 * if fs_out > 60000.0 { 0.5 } else { 1.0 })) as usize;
+        let m = oversample_for(def.oversample, fs_out);
         let fs = fs_out * m as f64;
         let sim = def.create(fs);
         let ctrl_every = 64 * m;

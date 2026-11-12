@@ -2,6 +2,7 @@
  * Petting a head: wiggle the pointer over the top of it for a moment and it closes its eyes, and
  * heart outlines float up beside it, as if it likes it. The view feeds the pointer's path over the
  * crown (in cm on the head, so it doesn't matter how big the head is drawn) and draws the hearts.
+ * The Bestiary's cat is stroked the same way, anywhere on its body (Stroking), and purrs.
  */
 import { V } from "../colors.ts";
 
@@ -72,6 +73,81 @@ export class Petting {
     // small LCG: the hearts' scatter needs no more
     this.seed = (this.seed * 16807) % 2147483647;
     return this.seed / 2147483647;
+  }
+}
+
+/** even-odd test: is `p` inside the closed outline? */
+export function insideOutline(p: [number, number], outline: readonly [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+    const [xi, yi] = outline[i], [xj, yj] = outline[j];
+    if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** a press that moved less than this (CSS px) was a tap, not a stroke */
+const TAP_PX = 6;
+/** this many taps within TAP_WINDOW ms and it has had enough */
+const TAPS = 5, TAP_WINDOW = 2500;
+
+/**
+ * An animal drawn as an outline that likes to be stroked (the cat). The view feeds the pointer
+ * in the animal's own centimetres: a pointer moving over its body strokes it, whether hovering
+ * or pressed (a finger can only stroke pressed), a press that lifts where it landed is a tap, and
+ * a fifth tap in a row annoys it, which ends the good mood.
+ */
+export class Stroking {
+  readonly pet = new Petting();
+  private last: [number, number] | null = null;
+  private down: { moved: number } | null = null;
+  private taps: number[] = [];
+
+  /** `gain`: how much of the path counts (1: as on a head, where 30 cm makes it happy) */
+  constructor(private readonly outline: readonly [number, number][], private readonly gain = 0.6) {}
+
+  private on(p: [number, number] | null): p is [number, number] {
+    return !!p && insideOutline(p, this.outline);
+  }
+
+  /** the pointer is at `p` (cm), having moved `px` CSS px since the last event; true over the body */
+  move(p: [number, number] | null, px = 0): boolean {
+    if (this.down) this.down.moved += px;
+    if (!this.on(p)) {
+      this.last = null;
+      return false;
+    }
+    if (this.last) this.pet.stroke(Math.hypot(p[0] - this.last[0], p[1] - this.last[1]) * this.gain);
+    this.last = p;
+    return true;
+  }
+
+  /** a press at `p`; true if it landed on the body */
+  press(p: [number, number] | null): boolean {
+    this.down = this.on(p) ? { moved: 0 } : null;
+    this.last = this.down ? p : null;
+    return !!this.down;
+  }
+
+  /** the press lifted at `now` (ms): a "tap", the tap that makes it "annoyed", or null (a stroke, or off the body) */
+  lift(now: number, touch = false): "tap" | "annoyed" | null {
+    const d = this.down;
+    this.down = null;
+    // a lifted finger is gone; a mouse is still over the body
+    if (touch) this.last = null;
+    if (!d || d.moved >= TAP_PX) return null;
+    this.taps = this.taps.filter((t) => now - t < TAP_WINDOW).concat(now);
+    if (this.taps.length < TAPS) return "tap";
+    this.taps = [];
+    this.pet.level = 0;
+    this.pet.happy = false;
+    return "annoyed";
+  }
+
+  /** the pointer left, or the press was taken away (a scroll) */
+  leave(): void {
+    this.last = null;
+    this.down = null;
   }
 }
 
