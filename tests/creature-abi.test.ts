@@ -54,4 +54,20 @@ describe("creature telemetry through the worklet", () => {
     expect(posted.some((m) => m.type === "telemetry")).toBe(true);
     expect(posted.filter((m) => m.type === "error")).toEqual([]);
   });
+
+  test("every creature has a drawing, and the drawing's tubes, sources and calls are the engine's", () => {
+    // the Bestiary reads `visual` for every creature in the catalogue: one without a drawing
+    // (src/ui/creatureVisuals.ts) throws while the gallery renders, and the tab doesn't open
+    for (const def of CREATURES) {
+      const v = def.visual;
+      expect(v, `${def.id} has no drawing`).toBeDefined();
+      expect(v.silhouette.length).toBeGreaterThan(2);
+      const ref = creaturePreview(def.id);
+      for (const t of v.tubes) expect(Object.keys(ref.tubes), `${def.id}'s drawing traces a tube the engine doesn't have`).toContain(t.tube);
+      for (const s of v.sources ?? []) expect(Object.keys(ref.source), `${def.id}'s drawing marks a source the engine doesn't report`).toContain(s.key);
+      const calls = def.calls.map((c) => c.id);
+      if (v.pet) for (const id of [v.pet.call, v.pet.tap, v.pet.annoyed]) expect(calls, `${def.id} is stroked into a call it doesn't have`).toContain(id);
+    }
+  });
 });
+
