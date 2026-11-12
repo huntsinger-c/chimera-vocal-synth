@@ -45,7 +45,11 @@ Needs Rust with the `wasm32-unknown-unknown` target, and Bun.
 bun install
 bun run dev        # builds the wasm, then Vite on 127.0.0.1:5317
 bun run test       # wasm build, cargo test --workspace, bun test tests
+bun tools/export-html.ts   # the whole app as one file, out/chimera.html (after `bun run wasm`)
 ```
+
+The exported file holds the engine, the worklet, the dictionary and the fonts, and loads nothing
+else: it runs opened from a disk, with no server and no network.
 
 The AudioWorklet needs a secure context, so open it on localhost or over HTTPS (for example
 `tailscale serve`). Vercel builds it with `vercel.json`.
