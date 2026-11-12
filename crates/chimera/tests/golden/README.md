@@ -25,6 +25,9 @@ When a test fails after an **intended** change to the sound, the plans or the tr
   text, the creatures, and the analysis code's own cases (networks, FFT, LPC, YIN, Nelder–Mead).
   Either update the expectation the change affects, or remove the case and add a behavioural test
   (`tests/*.rs`) for what the change is meant to do.
+- **A demo song added since** ("Tell me how it sounds") is not in the fixtures either. It goes
+  after the TypeScript engine's two in `DEMO_SONGS`, which `golden_phonetics_text.rs` checks as
+  the list's first entries, and `tests/songs.rs` checks every song the app can play.
 - **A creature added since** (the cat) is not in the fixtures. It goes after the TypeScript
   engine's four in the registry, because `golden_creatures.rs` checks those as the registry's
   first entries, in order, and it brings behavioural tests of its own (`tests/cat.rs`).
