@@ -242,7 +242,9 @@ pub fn def() -> CreatureDef {
         oversample: 2,
         gate_times: Some(GateTimes { attack: 0.02, release: 0.05 }),
         params: vec![
-            ParamDef::new("pitch", "Pitch", 80.0, 1600.0, TALKING_PITCH).unit("Hz").log().smooth(0.012).pitch(),
+            // (from 120 Hz, not lower: the app shifts the keys by whole octaves to centre them on
+            // this range, and from 80 Hz middle C stayed at 262 Hz, an octave under a cat)
+            ParamDef::new("pitch", "Pitch", 120.0, 1600.0, TALKING_PITCH).unit("Hz").log().smooth(0.012).pitch(),
             // (the held voice starts at 600 Hz with the mouth at 0.3, where the fundamental is 8 dB
             // under the second harmonic. At 560 Hz and 0.5 that harmonic sat on the mouth's
             // resonance, 20 dB over the fundamental, and the note read as the octave above.)

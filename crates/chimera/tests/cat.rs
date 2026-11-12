@@ -136,6 +136,20 @@ fn the_keys_pitch_a_meow() {
 }
 
 #[test]
+fn the_keys_land_in_a_cats_range() {
+    // The app moves the keyboard by whole octaves so that middle C lands nearest the middle of
+    // the pitch setting's range (creatureKeyHz in src/ui/store.ts). With the range starting at
+    // 80 Hz that was no move: middle C at 262 Hz, and the two octaves on screen (131-494 Hz) sat
+    // under every meow. From 120 Hz it is an octave up: 262-988 Hz on screen.
+    let def = cat();
+    let p = &def.params[def.param_index("pitch").unwrap()];
+    let octaves = ((p.min * p.max).sqrt() / 261.63).log2().round();
+    assert_eq!(octaves, 1.0, "the keys move {octaves} octaves for a range of {}-{} Hz", p.min, p.max);
+    // and a growl is still in reach
+    assert!(p.min <= 150.0);
+}
+
+#[test]
 fn a_trill_rises_and_is_rolled_at_the_purrs_rate() {
     let t = call("trill", None);
     let (start, end) = (pitch_at(&t, 0.06).0, pitch_at(&t, 0.5).0);
