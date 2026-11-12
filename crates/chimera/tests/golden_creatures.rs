@@ -192,13 +192,21 @@ fn preview_telemetry_serialises_like_typescript() {
         assert_key_order(name, &text, &params);
         seen += 1;
     }
-    assert_eq!(seen, CREATURES.len());
+    assert_eq!(seen, ts_creatures());
+}
+
+/// How many creatures the TypeScript engine had: the first of the registry, in its order. The
+/// fixtures cover those; a creature added since (the cat) has its own tests (`tests/cat.rs`).
+fn ts_creatures() -> usize {
+    let n = load("creature-units")["defs"].as_array().unwrap().len();
+    assert!(CREATURES.len() >= n, "the registry lost a creature the fixtures cover");
+    n
 }
 
 #[test]
 fn defs_serialise_like_typescript() {
     let u = load("creature-units");
-    let text = serde_json::to_string(&*CREATURES).unwrap();
+    let text = serde_json::to_string(&CREATURES[..ts_creatures()]).unwrap();
     let got: Value = serde_json::from_str(&text).unwrap();
     assert!(same_json(&got, &u["defs"]), "defs differ\n{got}\n{}", u["defs"]);
     assert_key_order("def", &text, &["id", "name", "latin", "group", "blurb", "role", "oversample"]);

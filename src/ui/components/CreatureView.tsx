@@ -39,7 +39,7 @@ interface TubeGeom {
 
 interface Geom {
   silhouette: P[];
-  parts: { shade: number; pts: P[] }[];
+  parts: { shade: number; pts: P[]; closed: boolean }[];
   tubes: TubeGeom[];
 }
 
@@ -50,7 +50,7 @@ function geometry(def: CreatureDef): Geom {
   const v = def.visual;
   g = {
     silhouette: smooth(v.silhouette, 8, true),
-    parts: (v.parts ?? []).map((p) => ({ shade: p.shade, pts: smooth(p.pts, 6, true) })),
+    parts: (v.parts ?? []).map((p) => ({ shade: p.shade, pts: smooth(p.pts, 6, !p.stroke), closed: !p.stroke })),
     tubes: v.tubes.map((t) => {
       const pts = smooth(t.path, 6, false);
       const cum = [0];
@@ -112,7 +112,7 @@ export function CreatureView() {
     const S = ([x, y]: P): Pt => [ox + x * sc, oy - y * sc];
 
     beamPts(ctx, geo.silhouette.map(S), V.blue, 1.7, { hot: true, close: true });
-    for (const part of geo.parts) beamPts(ctx, part.pts.map(S), part.shade > 0.5 ? V.blueMid : V.blueDim, 1, { close: true, alpha: 0.9 });
+    for (const part of geo.parts) beamPts(ctx, part.pts.map(S), part.shade > 0.5 ? V.blueMid : V.blueDim, 1, { close: part.closed, alpha: 0.9 });
 
     // airways: walls at the simulated width (drawn wider than life so narrow tubes stay legible)
     const exaggerate = vis.tubeScale ?? 1.6;

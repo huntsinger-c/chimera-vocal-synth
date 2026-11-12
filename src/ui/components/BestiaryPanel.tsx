@@ -33,7 +33,7 @@ function Gallery() {
   const creature = useStore((s) => s.creature);
   const setCreature = useStore((s) => s.setCreature);
   return (
-    <div className="specimens">
+    <div className="specimens" style={{ "--specimens": CREATURES.length } as React.CSSProperties}>
       {CREATURES.map((c) => (
         <button key={c.id} className={`specimen${c.id === creature ? " on" : ""}`} onClick={() => setCreature(c.id)} aria-pressed={c.id === creature}>
           <Thumb def={c} />
